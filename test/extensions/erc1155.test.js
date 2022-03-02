@@ -32,6 +32,7 @@ const {
   unitPrice,
   UNITS,
   GUILD,
+  ZERO_ADDRESS,
 } = require("../../utils/contract-util");
 
 const {
@@ -392,6 +393,85 @@ describe("Extension - ERC1155", () => {
         { from: nftOwner }
       ),
       "erc1155Ext::invalid amount"
+    );
+  });
+
+  it("should be possible to withdraw the NFT from the extension contract to the new owner account", async () => {
+    const erc1155TestToken = this.testContracts.erc1155TestToken;
+    const nftOwner = accounts[1];
+    const erc1155TokenExtension = this.extensions.erc1155Ext;
+    const erc1155TestAdapter = this.adapters.erc1155TestAdapter;
+
+    //create a test 1155 token
+    await erc1155TestToken.mint(nftOwner, 1, 10, "0x0", {
+      from: daoOwner,
+      gasPrice: toBN("0"),
+    });
+
+    const pastEvents = await erc1155TestToken.getPastEvents();
+    const { id, value } = pastEvents[0].returnValues;
+
+    // transfer from nft owner to the extension
+    await erc1155TestToken.safeTransferFrom(
+      nftOwner,
+      erc1155TokenExtension.address,
+      id,
+      2,
+      [],
+      {
+        from: nftOwner,
+        gasPrice: toBN("0"),
+      }
+    );
+
+    // Make sure it was collected
+    const nftAddr = await erc1155TokenExtension.getNFTAddress(0);
+    expect(nftAddr).equal(erc1155TestToken.address);
+    const nftId = await erc1155TokenExtension.getNFT(nftAddr, 0);
+    expect(nftId.toString()).equal(id.toString());
+
+    //check token balance of nftOwner after collection = -2
+    let balanceOfNftOwner = await erc1155TestToken.balanceOf(nftOwner, id);
+    expect(balanceOfNftOwner.toString()).equal("8");
+
+    //check token balance of the nftOwner inside the Extension = +2
+    let nftOwnerGuildBalance = await erc1155TokenExtension.getNFTIdAmount(
+      GUILD,
+      erc1155TestToken.address,
+      1
+    );
+    expect(nftOwnerGuildBalance.toString()).equal("2");
+    // If the NFT was properly saved, the guild must be the new owner of the NFT
+    let newOwner = await erc1155TokenExtension.getNFTOwner(
+      erc1155TestToken.address,
+      1,
+      0
+    );
+    expect(newOwner.toLowerCase()).equal(GUILD);
+
+    await erc1155TestAdapter.withdraw(
+      this.dao.address,
+      erc1155TestToken.address,
+      id, //tokenId
+      2, //amount
+      { from: nftOwner }
+    );
+
+    //check token balance of nftOwner after collection = +2
+    balanceOfNftOwner = await erc1155TestToken.balanceOf(nftOwner, id);
+    expect(balanceOfNftOwner.toString()).equal("10");
+
+    //check token balance of the nftOwner inside the Extension = -2
+    nftOwnerGuildBalance = await erc1155TokenExtension.getNFTIdAmount(
+      GUILD,
+      erc1155TestToken.address,
+      1
+    );
+    expect(nftOwnerGuildBalance.toString()).equal("0");
+    // The nft was moved to the new owner account, so the GUILD should not be the NFT owner anymore
+    // The getNFTOwner must revert because there is no NFT asset for the GUILD owner at index 0
+    await expectRevert.unspecified(
+      erc1155TokenExtension.getNFTOwner(erc1155TestToken.address, 1, 0)
     );
   });
 
