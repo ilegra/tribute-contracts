@@ -1,3 +1,8 @@
+This remixed version of the framework is part of the our DAO POC developed inside ilegra organization to test both the framework as the possibility to apply the DAO concept inside our day-to-day demands.
+
+
+Special thanks to [openlawteam] (https://github.com/openlawteam) community and to our PSA [Jackson Oliveira](https://github.com/cyberjso) for all the help and guidance.
+
 <div align="center">
     <img src="https://demo.tributedao.com/favicon.ico" height="70" alt="Tribute DAO Framework Logo">
     <h1>Tribute DAO Framework</h1>
